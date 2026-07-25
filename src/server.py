@@ -12,6 +12,7 @@ from services.groq_service import GroqService
 from services.tiktok_service import TikTokService
 from services.distortion_service import DistortionService
 from services.language_processor import LanguageProcessor
+from state_store import load_state, save_state
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +24,42 @@ from contextlib import asynccontextmanager
 async def lifespan(app: FastAPI):
     """Handle startup and shutdown."""
     logger.info("🚀 StillAliveGhost server starting...")
+
+    saved = load_state()
+    if saved:
+        bot_state["creature_name"] = saved.get("creature_name", bot_state["creature_name"])
+        bot_state["language"] = saved.get("language", bot_state["language"])
+        bot_state["font_mode"] = saved.get("font_mode", bot_state["font_mode"])
+        bot_state["targets"] = saved.get("targets", [])
+        bot_state["target_styles"] = saved.get("target_styles", {})
+        bot_state["who_count"] = saved.get("who_count", {})
+        bot_state["conversation_history"] = saved.get("conversation_history", {})
+        bot_state["comment_mode"] = saved.get("comment_mode", True)
+        bot_state["dm_mode"] = saved.get("dm_mode", True)
+
+        saved_session_id = saved.get("session_id")
+        was_running = saved.get("running", False)
+
+        if saved_session_id:
+            logger.info("🔑 Восстанавливаю авторизацию TikTok из сохранённой сессии...")
+            reconnected = await tiktok_service.connect_with_session_id(saved_session_id)
+            if reconnected:
+                bot_state["authenticated"] = True
+                logger.info(f"✓ Авторизация восстановлена: @{tiktok_service.auth.username}")
+
+                if was_running and bot_state["targets"]:
+                    bot_state["running"] = True
+                    logger.info("🔴 Охота была активна до перезапуска — возобновляю автоматически")
+                    asyncio.create_task(hunting_loop())
+                else:
+                    bot_state["running"] = False
+            else:
+                logger.warning("⚠ Не удалось восстановить сессию TikTok (возможно, истекла) — нужна повторная авторизация в приложении")
+                bot_state["authenticated"] = False
+                bot_state["running"] = False
+        else:
+            bot_state["running"] = False
+
     yield
     logger.info("🛑 Server shutting down...")
 
@@ -109,6 +146,10 @@ async def connect_tiktok(request: ConnectionRequest):
         
         bot_state["authenticated"] = True
         await broadcast_log("✓ Connected to TikTok")
+        # tiktok_service.auth.session_id заполняется и при логине по паролю
+        # (это TikTok-cookie, полученная после входа, а не сам пароль) —
+        # сохраняем её для восстановления сессии при следующем запуске сервера.
+        save_state(bot_state, session_id=tiktok_service.auth.session_id)
         return {
             "status": "connected",
             "username": tiktok_service.auth.username
@@ -132,6 +173,7 @@ async def update_settings(request: BotSettingsRequest):
         f"Lang: {request.language} | "
         f"Font: {request.font_mode}"
     )
+    save_state(bot_state, session_id=tiktok_service.auth.session_id)
     return {"status": "updated"}
 
 
@@ -151,6 +193,7 @@ async def set_targets(request: TargetRequest):
         else:
             await broadcast_log(f"⚠ Failed to follow @{username}")
     
+    save_state(bot_state, session_id=tiktok_service.auth.session_id)
     return {"status": "targets_set", "targets": bot_state["targets"]}
 
 
@@ -166,11 +209,13 @@ async def control_bot(request: ControlRequest):
     if request.action == "start":
         bot_state["running"] = True
         await broadcast_log("🔴 HUNTING STARTED")
+        save_state(bot_state, session_id=tiktok_service.auth.session_id)
         asyncio.create_task(hunting_loop())
         return {"status": "hunting"}
     elif request.action == "stop":
         bot_state["running"] = False
         await broadcast_log("⚫ HUNTING STOPPED")
+        save_state(bot_state, session_id=tiktok_service.auth.session_id)
         return {"status": "stopped"}
     
     raise HTTPException(status_code=400, detail="Invalid action")
@@ -276,6 +321,10 @@ async def hunting_loop():
                 
                 await asyncio.sleep(10)
             
+            # Раз в проход всего цикла (не на каждое сообщение) сохраняем
+            # накопленную историю переписки и счётчики — чтобы при
+            # перезапуске сервера контекст диалогов не терялся.
+            save_state(bot_state, session_id=tiktok_service.auth.session_id)
             await asyncio.sleep(30)
         except Exception as e:
             await broadcast_log(f"⚠ Error: {e}")
@@ -313,3 +362,4 @@ async def get_status():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
