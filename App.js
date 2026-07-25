@@ -6,17 +6,67 @@ import {
 import { WebView } from 'react-native-webview';
 import Constants from 'expo-constants';
 
-// URL бэкенда. Берётся из EXPO_PUBLIC_API_URL (задаётся при сборке через GitHub Actions secret),
-// либо из app.json -> extra.apiUrl, либо localhost как последний фолбэк для локальной разработки.
-// В собранном APK "localhost" указывает на сам телефон, а не на твой сервер — отсюда
-// "network request failed", если ни одна из первых двух переменных не задана.
-const API_BASE =
+// ═══════════════════════════════════════════════════════════════
+// Определение адреса бэкенда — по той же схеме, что и в SecureChat
+// (см. www/boot.js там): при каждом запуске приложение само тянет
+// свежий адрес из открытого файла в GitHub-репозитории. Пересборка
+// APK при смене адреса туннеля больше не нужна вообще — только
+// когда меняется сам код приложения.
+//
+// Порядок приоритета:
+//  1. Свежий адрес из GitHub (patches/current-server-url.txt) — если
+//     удалось получить при этом запуске.
+//  2. EXPO_PUBLIC_API_URL / app.json extra.apiUrl — зашитый при сборке
+//     фолбэк, на случай если GitHub недоступен при самом первом запуске.
+//  3. localhost — совсем последний фолбэк для локальной разработки.
+//
+// ⚠️ Замени ссылку ниже на свой репозиторий/ветку, если они другие.
+const SERVER_URL_LOOKUP =
+  'https://raw.githubusercontent.com/evestcod-lgtm/stillalive/main/patches/current-server-url.txt';
+
+const BAKED_API_BASE =
   process.env.EXPO_PUBLIC_API_URL ||
   Constants.expoConfig?.extra?.apiUrl ||
   'http://localhost:8000';
 
-if (__DEV__) {
-  console.log('[StillAlive] API_BASE =', API_BASE);
+// Мутируемое значение — обновляется один раз при старте приложения,
+// после чего используется всеми запросами через getApiBase().
+let resolvedApiBase = BAKED_API_BASE;
+let apiBaseReady = false;
+let apiBaseReadyPromise = null;
+
+function getApiBase() {
+  return resolvedApiBase;
+}
+
+async function resolveApiBase() {
+  if (apiBaseReadyPromise) return apiBaseReadyPromise;
+
+  apiBaseReadyPromise = (async () => {
+    try {
+      const resp = await fetch(SERVER_URL_LOOKUP + '?t=' + Date.now());
+      if (resp.ok) {
+        const text = (await resp.text() || '').trim();
+        if (text && text.indexOf('http') === 0) {
+          resolvedApiBase = text;
+          if (__DEV__) {
+            console.log('[StillAlive] API_BASE (из GitHub) =', resolvedApiBase);
+          }
+        }
+      }
+    } catch (e) {
+      // GitHub недоступен в момент запуска (нет интернета/rate limit) —
+      // не страшно, остаёмся на BAKED_API_BASE, зашитом при сборке.
+      if (__DEV__) {
+        console.log('[StillAlive] Не удалось получить адрес из GitHub, использую фолбэк:', BAKED_API_BASE, e?.message);
+      }
+    } finally {
+      apiBaseReady = true;
+    }
+    return resolvedApiBase;
+  })();
+
+  return apiBaseReadyPromise;
 }
 
 export default function App() {
@@ -34,9 +84,13 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const wsRef = useRef(null);
+  const [apiReady, setApiReady] = useState(false);
 
   useEffect(() => {
-    connectWebSocket();
+    resolveApiBase().finally(() => {
+      setApiReady(true);
+      connectWebSocket();
+    });
     return () => {
       if (wsRef.current) wsRef.current.close();
     };
@@ -44,7 +98,7 @@ export default function App() {
 
   const connectWebSocket = () => {
     try {
-      const wsUrl = API_BASE.replace(/^http/, 'ws') + '/ws/logs';
+      const wsUrl = getApiBase().replace(/^http/, 'ws') + '/ws/logs';
       wsRef.current = new WebSocket(wsUrl);
       wsRef.current.onmessage = (event) => {
         try {
@@ -95,17 +149,18 @@ export default function App() {
       return;
     }
 
-    if (API_BASE.includes('localhost') || API_BASE.includes('127.0.0.1')) {
+    const apiBase = getApiBase();
+    if (apiBase.includes('localhost') || apiBase.includes('127.0.0.1')) {
       Alert.alert(
         'Бэкенд не настроен',
-        `Приложение пытается подключиться к ${API_BASE}, но в собранном APK это адрес самого телефона, а не сервера. Задай EXPO_PUBLIC_API_URL перед сборкой (см. README/SETUP).`
+        `Приложение пытается подключиться к ${apiBase}. Проверь, что бэкенд и туннель запущены в Termux (см. termux/README.md) — адрес подтягивается автоматически из GitHub при каждом запуске приложения.`
       );
       return;
     }
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/connect`, {
+      const response = await fetch(`${apiBase}/api/connect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -131,7 +186,7 @@ export default function App() {
   const handleSettingsUpdate = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/settings`, {
+      const response = await fetch(`${getApiBase()}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -163,7 +218,7 @@ export default function App() {
     setTargetInput('');
 
     try {
-      await fetch(`${API_BASE}/api/targets`, {
+      await fetch(`${getApiBase()}/api/targets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usernames: newTargets }),
@@ -186,7 +241,7 @@ export default function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/control`, {
+      const response = await fetch(`${getApiBase()}/api/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'start' }),
@@ -205,7 +260,7 @@ export default function App() {
   const handleStop = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/control`, {
+      const response = await fetch(`${getApiBase()}/api/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'stop' }),
