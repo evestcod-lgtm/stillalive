@@ -7,6 +7,9 @@
     "assetBundlePatterns": ["**/*"],
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#000000"
+    },
     "ios": null,
     "android": {
       "package": "com.stillalive.ghost",
