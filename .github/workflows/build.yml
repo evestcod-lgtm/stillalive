@@ -18,15 +18,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
-        cache: 'npm'
-
-    - name: Setup Java
-      uses: actions/setup-java@v3
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-        cache: 'gradle'
+        node-version: '24'
 
     - name: Setup Python
       uses: actions/setup-python@v4
@@ -52,25 +44,34 @@ jobs:
         echo "API_URL=http://localhost:8000" >> .env
         echo "NODE_ENV=production" >> .env
 
+    - name: Install expo-cli
+      run: npm install -g expo-cli
+
     - name: Expo prebuild
-      run: |
-        npm install -g expo-cli eas-cli
-        npx expo prebuild --platform android --clean
+      run: npx expo prebuild --platform android --clean --non-interactive
+
+    - name: Setup Java
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+        cache: 'gradle'
 
     - name: Build APK with gradle
       run: |
         cd android
-        ./gradlew assembleRelease -x bundleReleaseJs --info
+        chmod +x gradlew
+        ./gradlew assembleRelease -x bundleReleaseJs --no-daemon
         cd ..
 
-    - name: Find APK
+    - name: Find and copy APK
       run: |
         echo "=== Searching for APK ==="
-        find . -name "*.apk" -type f
+        find . -name "*.apk" -type f | head -10
         echo ""
-        echo "=== Copy to root ==="
+        echo "=== Copying to root ==="
         find android -name "*.apk" -type f -exec cp {} app.apk \; 2>/dev/null || true
-        ls -lh app.apk 2>/dev/null || echo "No APK found"
+        ls -lh app.apk 2>/dev/null || echo "⚠️ No APK found"
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
