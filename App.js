@@ -582,4 +582,3 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
-
