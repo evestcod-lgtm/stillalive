@@ -6,7 +6,18 @@ import {
 import { WebView } from 'react-native-webview';
 import Constants from 'expo-constants';
 
-const API_BASE = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:8000';
+// URL бэкенда. Берётся из EXPO_PUBLIC_API_URL (задаётся при сборке через GitHub Actions secret),
+// либо из app.json -> extra.apiUrl, либо localhost как последний фолбэк для локальной разработки.
+// В собранном APK "localhost" указывает на сам телефон, а не на твой сервер — отсюда
+// "network request failed", если ни одна из первых двух переменных не задана.
+const API_BASE =
+  process.env.EXPO_PUBLIC_API_URL ||
+  Constants.expoConfig?.extra?.apiUrl ||
+  'http://localhost:8000';
+
+if (__DEV__) {
+  console.log('[StillAlive] API_BASE =', API_BASE);
+}
 
 export default function App() {
   const [screen, setScreen] = useState('login');
@@ -81,6 +92,14 @@ export default function App() {
   const handleConnect = async () => {
     if (!sessionId.trim()) {
       Alert.alert('Ошибка', 'Введите Session ID');
+      return;
+    }
+
+    if (API_BASE.includes('localhost') || API_BASE.includes('127.0.0.1')) {
+      Alert.alert(
+        'Бэкенд не настроен',
+        `Приложение пытается подключиться к ${API_BASE}, но в собранном APK это адрес самого телефона, а не сервера. Задай EXPO_PUBLIC_API_URL перед сборкой (см. README/SETUP).`
+      );
       return;
     }
 
@@ -583,4 +602,5 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
+
 
