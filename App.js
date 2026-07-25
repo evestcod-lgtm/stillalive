@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
-  Switch, FlatList, ActivityIndicator, Alert, SafeAreaView, WebView,
+  Switch, FlatList, ActivityIndicator, Alert, SafeAreaView,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import Constants from 'expo-constants';
 
 const API_BASE = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:8000';
@@ -582,3 +583,4 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
+
