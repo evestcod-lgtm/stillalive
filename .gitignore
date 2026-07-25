@@ -1,0 +1,17 @@
+.env
+.env.local
+.env.*.local
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+.expo/
+.expo-shared/
+dist/
+build/
+.idea/
+.vscode/
+*.log
+*.apk
+*.aab

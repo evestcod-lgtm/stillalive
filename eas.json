@@ -1,0 +1,35 @@
+{
+  "cli": {
+    "version": ">= 5.0.0",
+    "requireCommit": false
+  },
+  "build": {
+    "production": {
+      "node": "18.17.0",
+      "yarn": "1.22.19",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://stillalive-api.example.com"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "development": {
+      "node": "18.17.0",
+      "developmentClient": true
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccount": "./google-services.json",
+        "track": "internal"
+      }
+    }
+  }
+}

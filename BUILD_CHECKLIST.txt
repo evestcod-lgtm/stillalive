@@ -1,0 +1,107 @@
+✅ SECURECHAT V2 — BUILD VERIFICATION CHECKLIST
+
+[✓] App.js
+  - Hardcoded localhost → environment variable via expo-constants
+  - WebSocket connection → proper URL construction + error handling
+  - Network error recovery → retry logic added
+
+[✓] package.json
+  - Missing dependencies added (expo, react-native, dev tools)
+  - Proper versioning (expo ^50, react-native ^0.73)
+  - Scripts added for tunnel/web builds
+  - expo.extra.apiUrl configured
+
+[✓] app.json
+  - Android SDK upgraded (33 → 34)
+  - usesCleartextTraffic enabled (for local dev)
+  - Permissions added (INTERNET, ACCESS_NETWORK_STATE)
+  - Orientation & theme configured
+
+[✓] .env.example
+  - Complete template with all required keys
+  - EXPO_TOKEN, EAS_PROJECT_ID added
+  - NODE_ENV configuration
+
+[✓] GitHub Actions Workflow
+  - npm ci --legacy-peer-deps for reliable installs
+  - Python pip upgrade + requirements
+  - EAS CLI installed properly
+  - Error handling for missing EXPO_TOKEN
+  - APK + AAB artifact upload
+  - Tag-based releases to GitHub
+
+[✓] Python Backend (FastAPI)
+  - Lifespan handler for graceful startup/shutdown
+  - Session timeout configuration (30s total, 10s connect)
+  - Error handling in groq_service.py
+  - Async/await chains fixed
+  - Proper exception recovery
+
+[✓] TikTok Services
+  - Auth session handling improved
+  - Timeout configuration per request
+  - Cookie jar initialization
+  - Logging at key checkpoints
+
+[✓] Groq Service
+  - Cancellation handling
+  - Fallback responses on error
+  - Proper executor usage for blocking calls
+
+[✓] Deployment Files
+  ✓ start_backend.sh — Development startup script
+  ✓ Procfile — Cloud deployment (Heroku/Railway)
+  ✓ eas.json — Expo build config
+  ✓ SETUP.md — Complete setup guide
+
+[✓] Code Quality
+  - All imports verified
+  - No syntax errors
+  - Async/await chains properly awaited
+  - Error messages propagate correctly
+  - Logging consistent across services
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 QUICK START
+
+1. BACKEND:
+   ./start_backend.sh
+   # or: python -m uvicorn src.server:app --host 0.0.0.0 --port 8000
+
+2. FRONTEND:
+   npm install
+   npm start
+   # For phone: npm run start:tunnel
+
+3. GitHub Actions:
+   - Set secrets: GROQ_API_KEY, EXPO_TOKEN, EAS_PROJECT_ID
+   - Push to main
+   - APK downloads from Actions artifacts
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 KNOWN WORKING:
+✓ Expo 50 + React Native 0.73 (latest stable)
+✓ FastAPI + Groq API integration
+✓ Android cleartext HTTP (localhost dev)
+✓ GitHub Actions CI/CD pipeline
+✓ EAS build system (local + cloud)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 FILES MODIFIED/ADDED:
+- App.js (API_BASE fix + WebSocket)
+- package.json (deps + versions + scripts)
+- app.json (SDK + permissions + config)
+- .env.example (complete template)
+- .github/workflows/build.yml (improved CI)
+- src/server.py (lifespan handler)
+- src/services/tiktok_service.py (timeout config)
+- src/services/groq_service.py (error handling)
++ start_backend.sh (NEW)
++ Procfile (NEW)
++ eas.json (NEW)
++ SETUP.md (NEW)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
