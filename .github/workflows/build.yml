@@ -41,13 +41,19 @@ jobs:
     - name: Create .env file
       run: |
         echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}" > .env
-        echo "API_URL=http://localhost:8000" >> .env
+        echo "EXPO_PUBLIC_API_URL=${{ secrets.API_URL }}" >> .env
         echo "NODE_ENV=production" >> .env
+        if [ -z "${{ secrets.API_URL }}" ]; then
+          echo "⚠️ Секрет API_URL не задан в настройках репозитория (Settings → Secrets → Actions)."
+          echo "⚠️ APK соберётся, но будет пытаться стучаться на localhost и не сможет подключиться к бэкенду."
+        fi
 
     - name: Install expo-cli
       run: npm install -g expo-cli
 
     - name: Expo prebuild
+      env:
+        EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}
       run: npx expo prebuild --platform android --clean --non-interactive
 
     - name: Setup Java
@@ -58,6 +64,8 @@ jobs:
         cache: 'gradle'
 
     - name: Build APK with gradle
+      env:
+        EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}
       run: |
         cd android
         chmod +x gradlew
