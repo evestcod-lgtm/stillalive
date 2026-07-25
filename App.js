@@ -87,14 +87,45 @@ export default function App() {
   const [apiReady, setApiReady] = useState(false);
 
   useEffect(() => {
-    resolveApiBase().finally(() => {
-      setApiReady(true);
-      connectWebSocket();
-    });
+    resolveApiBase()
+      .then(() => restoreStateFromServer())
+      .finally(() => {
+        setApiReady(true);
+        connectWebSocket();
+      });
     return () => {
       if (wsRef.current) wsRef.current.close();
     };
   }, []);
+
+  // Если бэкенд уже авторизован и/или охотится (например, сервер сам
+  // перезапустился и восстановил состояние — см. state_store.py на
+  // бэкенде), приложение при открытии сразу показывает актуальный
+  // экран вместо формы логина, вместо того чтобы предлагать
+  // подключаться заново к уже работающему боту.
+  const restoreStateFromServer = async () => {
+    try {
+      const resp = await fetch(`${getApiBase()}/api/status`);
+      if (!resp.ok) return;
+      const status = await resp.json();
+
+      if (status.creature_name) setCreatureName(status.creature_name);
+      if (status.language) setLanguage(status.language);
+      if (status.font_mode) setFontMode(status.font_mode);
+      if (Array.isArray(status.targets)) setTargets(status.targets);
+
+      if (status.authenticated) {
+        setIsRunning(!!status.running);
+        setScreen(status.running || (status.targets && status.targets.length > 0) ? 'control' : 'targets');
+      }
+    } catch (e) {
+      // Бэкенд недоступен при старте — остаёмся на экране логина как раньше,
+      // ничего страшного, это тот же путь, что был до этого изменения.
+      if (__DEV__) {
+        console.log('[StillAlive] Не удалось получить /api/status при старте:', e?.message);
+      }
+    }
+  };
 
   const connectWebSocket = () => {
     try {
