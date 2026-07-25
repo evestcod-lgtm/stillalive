@@ -99,17 +99,48 @@ catch_url() {
   return 1
 }
 
-# Проверяет, что туннель реально отвечает (не просто что процесс жив)
+# Проверяет, что туннель реально отвечает. Раньше здесь curl шёл через сам
+# внешний адрес (телефон стучался сам к себе через интернет+Cloudflare) —
+# любая мимолётная заминка мобильной сети засчитывалась как "туннель мёртв",
+# из-за чего cloudflared убивался и пересоздавался каждую минуту, а
+# Cloudflare в итоге начинал троттлить такие частые пересоздания.
+# Теперь: 1) сначала быстро проверяем, что локальный сервер вообще жив
+#            (127.0.0.1, без интернета, доля секунды) — если он не отвечает,
+#            это не вина туннеля, ждём и не убиваем cloudflared;
+#         2) внешний адрес проверяем только раз в несколько циклов и не
+#            убиваем при единичном сбое — только если внешняя проверка
+#            не проходит несколько раз ПОДРЯД (реальный признак, что
+#            именно туннель, а не сеть, отвалился).
+EXTERNAL_FAIL_STREAK=0
+EXTERNAL_FAIL_LIMIT=3   # убиваем только после 3 неудач подряд (не с первой)
+
+local_server_is_up() {
+  local code
+  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://127.0.0.1:8000/docs")
+  [ "$code" != "000" ] && [ "$code" -lt 500 ] 2>/dev/null
+}
+
 tunnel_is_healthy() {
   local url="$1"
   [ -z "$url" ] && return 1
-  local code
-  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 "$url/docs")
-  # 200/404 — сервер ответил (значит туннель жив); 000/5xx/timeout — не ответил
-  if [ "$code" != "000" ] && [ "$code" -lt 500 ] 2>/dev/null; then
+
+  if ! local_server_is_up; then
+    # Локальный сервер сам не отвечает — это не проблема туннеля,
+    # не наказываем cloudflared за то, что не его вина.
+    echo "$(date) ℹ️ Локальный сервер (127.0.0.1:8000) не отвечает — жду, туннель не трогаю" >> "$LOG"
     return 0
   fi
-  return 1
+
+  local code
+  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$url/docs")
+  if [ "$code" != "000" ] && [ "$code" -lt 500 ] 2>/dev/null; then
+    EXTERNAL_FAIL_STREAK=0
+    return 0
+  fi
+
+  EXTERNAL_FAIL_STREAK=$((EXTERNAL_FAIL_STREAK + 1))
+  echo "$(date) ⚠️ Внешняя проверка не прошла ($EXTERNAL_FAIL_STREAK/$EXTERNAL_FAIL_LIMIT)" >> "$LOG"
+  [ "$EXTERNAL_FAIL_STREAK" -lt "$EXTERNAL_FAIL_LIMIT" ]
 }
 
 LAST_URL=""
@@ -138,11 +169,13 @@ while true; do
     LAST_URL="$NEW_URL"
   fi
 
-  # Пока процесс жив — раз в 20с проверяем реальную доступность
+  EXTERNAL_FAIL_STREAK=0
+
+  # Пока процесс жив — раз в 45с проверяем реальную доступность
   while kill -0 "$CF_PID" 2>/dev/null; do
-    sleep 20
+    sleep 45
     if ! tunnel_is_healthy "$LAST_URL"; then
-      echo "$(date) ⚠️ Туннель не отвечает, перезапускаю" >> "$LOG"
+      echo "$(date) ⚠️ Туннель не отвечает ($EXTERNAL_FAIL_LIMIT раз подряд), перезапускаю" >> "$LOG"
       kill "$CF_PID" 2>/dev/null
       break
     fi
@@ -151,4 +184,3 @@ while true; do
   echo "$(date) 💀 cloudflared завершился, перезапуск через 3с" >> "$LOG"
   sleep 3
 done
-
