@@ -35,6 +35,7 @@
     ],
     "extra": {
       "apiUrl": "http://localhost:8000"
-    }
+    },
+    "_comment_apiUrl": "apiUrl выше — только фолбэк для локальной разработки. При сборке в GitHub Actions реальный адрес бэкенда приходит через переменную окружения EXPO_PUBLIC_API_URL (см. .github/workflows/build.yml и SETUP.md)."
   }
 }
