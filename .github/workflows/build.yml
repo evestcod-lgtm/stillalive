@@ -61,7 +61,7 @@ jobs:
       run: |
         cd android
         chmod +x gradlew
-        ./gradlew assembleRelease -x bundleReleaseJs --no-daemon
+        ./gradlew assembleRelease --no-daemon
         cd ..
 
     - name: Find and copy APK
