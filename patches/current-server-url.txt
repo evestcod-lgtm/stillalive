@@ -1,1 +1,1 @@
-https://breakfast-sets-publicity-tour.trycloudflare.com
+https://api.trycloudflare.com
