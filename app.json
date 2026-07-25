@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "StillAliveGhost",
-    "slug": "still-alive-ghost",
+    "name": "StillLife",
+    "slug": "still-life",
     "version": "1.0.0",
-    "scheme": "stillalive",
+    "scheme": "stilllife",
     "assetBundlePatterns": ["**/*"],
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -13,7 +13,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.stillalive.ghost",
+      "package": "com.stilllife.ghost",
       "versionCode": 1,
       "permissions": [
         "INTERNET",
@@ -23,20 +23,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "compileSdkVersion": 34,
-            "targetSdkVersion": 34,
-            "buildToolsVersion": "34.0.0",
-            "minSdkVersion": 21,
-            "usesCleartextTraffic": true
-          }
-        }
-      ]
-    ],
     "extra": {
       "apiUrl": "http://localhost:8000"
     }
