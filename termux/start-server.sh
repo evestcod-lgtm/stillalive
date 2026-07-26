@@ -18,8 +18,14 @@ if [ ! -f ".env" ]; then
   echo "⚠️  Файл .env не найден. Создай его: echo 'GROQ_API_KEY=...' > .env"
 fi
 
-nohup python -m uvicorn src.server:app --host 0.0.0.0 --port 8000 > "$APPDIR/server.log" 2>&1 &
+# Запускаем именно из src/ — server.py импортирует свои модули как
+# "from services.groq_service import ..." (относительно src/, а не
+# относительно корня репозитория), поэтому "python -m uvicorn src.server:app"
+# из корня падает с ModuleNotFoundError: No module named 'services'.
+cd "$APPDIR/src"
+nohup python -m uvicorn server:app --host 0.0.0.0 --port 8000 > "$APPDIR/server.log" 2>&1 &
 SERVER_PID=$!
+cd "$APPDIR"
 echo "$SERVER_PID" > "$APPDIR/termux/server.pid"
 
 echo "✅ Сервер запущен (PID $SERVER_PID). Логи: $APPDIR/server.log"
