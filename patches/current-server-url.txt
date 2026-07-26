@@ -1,1 +1,1 @@
-https://api.trycloudflare.com
+https://olympic-predicted-affiliates-temporary.trycloudflare.com
