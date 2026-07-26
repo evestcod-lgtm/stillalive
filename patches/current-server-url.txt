@@ -1,1 +1,1 @@
-https://trustees-peer-outline-earn.trycloudflare.com
+https://api.trycloudflare.com
