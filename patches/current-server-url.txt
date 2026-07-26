@@ -1,1 +1,1 @@
-https://guild-lectures-bible-selling.trycloudflare.com
+https://api.trycloudflare.com
