@@ -1,1 +1,1 @@
-https://intelligent-kansas-consent-teach.trycloudflare.com
+https://api.trycloudflare.com
