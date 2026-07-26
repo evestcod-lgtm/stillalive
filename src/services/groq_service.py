@@ -11,7 +11,11 @@ class GroqService:
     
     def __init__(self, api_key: str):
         self.client = Groq(api_key=api_key)
-        self.model = "mixtral-8x7b-32768"
+        # mixtral-8x7b-32768 снята Groq с обслуживания (запрос с ней вернёт
+        # ошибку API). openai/gpt-oss-20b — актуальная быстрая модель,
+        # хорошо подходит для коротких реплик бота; если нужны более
+        # качественные/длинные ответы — можно заменить на openai/gpt-oss-120b.
+        self.model = "openai/gpt-oss-20b"
     
     async def generate_response(
         self,
