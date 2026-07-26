@@ -112,7 +112,7 @@ catch_url() {
 #            не проходит несколько раз ПОДРЯД (реальный признак, что
 #            именно туннель, а не сеть, отвалился).
 EXTERNAL_FAIL_STREAK=0
-EXTERNAL_FAIL_LIMIT=3   # убиваем только после 3 неудач подряд (не с первой)
+EXTERNAL_FAIL_LIMIT=5   # убиваем только после 5 неудач подряд, не с первой
 
 local_server_is_up() {
   local code
@@ -131,15 +131,18 @@ tunnel_is_healthy() {
     return 0
   fi
 
+  # Таймаут увеличен до 20с — на мобильной сети round-trip через
+  # Cloudflare edge иногда занимает больше 10с, особенно сразу после
+  # создания туннеля, пока DNS/маршруты ещё не устоялись.
   local code
-  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$url/docs")
+  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$url/docs")
   if [ "$code" != "000" ] && [ "$code" -lt 500 ] 2>/dev/null; then
     EXTERNAL_FAIL_STREAK=0
     return 0
   fi
 
   EXTERNAL_FAIL_STREAK=$((EXTERNAL_FAIL_STREAK + 1))
-  echo "$(date) ⚠️ Внешняя проверка не прошла ($EXTERNAL_FAIL_STREAK/$EXTERNAL_FAIL_LIMIT)" >> "$LOG"
+  echo "$(date) ⚠️ Внешняя проверка не прошла ($EXTERNAL_FAIL_STREAK/$EXTERNAL_FAIL_LIMIT, код: $code)" >> "$LOG"
   [ "$EXTERNAL_FAIL_STREAK" -lt "$EXTERNAL_FAIL_LIMIT" ]
 }
 
@@ -171,9 +174,18 @@ while true; do
 
   EXTERNAL_FAIL_STREAK=0
 
-  # Пока процесс жив — раз в 45с проверяем реальную доступность
+  # Первая проверка — через 90с, а не 45 — quick tunnel не всегда
+  # стабильно резолвится/маршрутизируется в первую минуту после создания.
+  FIRST_CHECK=1
+
+  # Пока процесс жив — проверяем реальную доступность
   while kill -0 "$CF_PID" 2>/dev/null; do
-    sleep 45
+    if [ "$FIRST_CHECK" = "1" ]; then
+      sleep 90
+      FIRST_CHECK=0
+    else
+      sleep 45
+    fi
     if ! tunnel_is_healthy "$LAST_URL"; then
       echo "$(date) ⚠️ Туннель не отвечает ($EXTERNAL_FAIL_LIMIT раз подряд), перезапускаю" >> "$LOG"
       kill "$CF_PID" 2>/dev/null
