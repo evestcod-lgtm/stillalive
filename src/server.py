@@ -14,7 +14,13 @@ from services.distortion_service import DistortionService
 from services.language_processor import LanguageProcessor
 from state_store import load_state, save_state
 
-load_dotenv()
+# load_dotenv() без аргумента ищет .env в текущей рабочей директории.
+# Сервер запускается из src/ (см. termux/start-server.sh — нужно для
+# корректной работы "from services.X import Y"), а .env лежит в корне
+# репозитория — поэтому путь указываем явно, независимо от того, откуда
+# реально был запущен процесс.
+_ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+load_dotenv(_ENV_PATH)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
